@@ -24,21 +24,10 @@ lazy val roguelike =
       libraryDependencies ++= Seq(
         "io.indigoengine" %%% "indigo-json-circe" % "0.9.0",
         "io.indigoengine" %%% "indigo"            % "0.9.0",
-        "io.indigoengine" %%% "indigo-extras"     % "0.9.0"
+        "io.indigoengine" %%% "indigo-extras"     % "0.9.0",
+        "io.indigoengine" %%% "roguelike-lib"     % "0.0.1"
       )
       // scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) } // required for parcel, but will break indigoRun & indigoBuild
-    )
-    .settings(
-      Compile / sourceGenerators += Def.task {
-        TileCharGen
-          .gen(
-            "DfTiles", // Class/module name.
-            "roguelike", // fully qualified package name
-            (Compile / sourceManaged).value, // Managed sources (output) directory for the generated classes
-            10, // Character width
-            10 // Character height
-          )
-      }.taskValue
     )
     .settings(
       code := { "code ." ! }
