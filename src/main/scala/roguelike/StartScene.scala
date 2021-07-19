@@ -32,7 +32,7 @@ object StartScene extends Scene[Unit, Model, ViewModel]:
     case KeyboardEvent.KeyUp(Key.SPACE) =>
       Outcome(model).addGlobalEvents(SceneEvent.JumpTo(GameScene.name))
     case RegenerateLevel =>
-      Outcome(Model.generateDungeon(context.dice, model.screenSize))
+      Outcome(Model.generateModel(context.dice, model.screenSize))
     case _ =>
       Outcome(model)
 
@@ -42,10 +42,15 @@ object StartScene extends Scene[Unit, Model, ViewModel]:
       viewModel: ViewModel
   ): GlobalEvent => Outcome[ViewModel] =
     case RegenerateLevel =>
+      val term =
+        TerminalEmulator(RogueLikeGame.screenSize)
+          .put(model.gameMap.toExploredTiles)
+          .put(model.gameMap.visibleTiles)
+          .put(model.entitiesList.map(e => (e.position, e.tile)))
+          .draw(Assets.tileMap, RogueLikeGame.charSize, viewModel.shroud)
       Outcome(
         viewModel.copy(
-          background = TerminalEmulator(RogueLikeGame.screenSize)
-            .put(model.gameMap.toPositionedTiles)
+          terminalEntity = Option(term)
         )
       )
     case _ => Outcome(viewModel)

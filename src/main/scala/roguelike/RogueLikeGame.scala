@@ -16,10 +16,10 @@ object RogueLikeGame extends IndigoGame[Unit, Unit, Model, ViewModel]:
   val charSize: Size = Size(10, 10)
 
   def initialScene(bootData: Unit): Option[SceneName] =
-    Option(StartScene.name)
+    None
 
   def scenes(bootData: Unit): NonEmptyList[Scene[Unit, Model, ViewModel]] =
-    NonEmptyList(StartScene, GameScene)
+    NonEmptyList(GameScene)
 
   val eventFilters: EventFilters =
     EventFilters.Permissive
@@ -57,6 +57,9 @@ object RogueLikeGame extends IndigoGame[Unit, Unit, Model, ViewModel]:
     _ => Outcome(viewModel)
 
   def present(context: FrameContext[Unit], model: Model, viewModel: ViewModel): Outcome[SceneUpdateFragment] =
-    Outcome(SceneUpdateFragment.empty)
+    Outcome(SceneUpdateFragment(
+      Layer(BindingKey("game")),
+      Layer(BindingKey("fps"))
+    ))
 
   case object RegenerateLevel extends GlobalEvent
