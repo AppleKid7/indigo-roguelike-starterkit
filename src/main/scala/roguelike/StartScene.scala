@@ -43,7 +43,7 @@ object StartScene extends Scene[Unit, Model, ViewModel]:
   ): GlobalEvent => Outcome[ViewModel] =
     case RegenerateLevel =>
       val term =
-        TerminalEmulator(RogueLikeGame.screenSize)
+        TerminalEmulator(RogueLikeGame.screenSize, 4096)
           .put(model.gameMap.toExploredTiles)
           .put(model.gameMap.visibleTiles)
           .put(model.entitiesList.map(e => (e.position, e.tile)))
