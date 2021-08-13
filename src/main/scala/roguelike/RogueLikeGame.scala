@@ -12,7 +12,7 @@ import roguelike.model.ViewModel
 @JSExportTopLevel("IndigoGame")
 object RogueLikeGame extends IndigoGame[Unit, Unit, Model, ViewModel]:
 
-  val screenSize: Size = Size(32, 32)
+  val screenSize: Size = Size(80, 50)
   val charSize: Size = Size(10, 10)
   val maxNumberOfTiles: Int = 4096
 
