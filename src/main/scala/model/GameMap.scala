@@ -12,7 +12,10 @@ import indigoextras.geometry.Vertex
 import scala.annotation.tailrec
 import indigoextras.geometry.BoundingBox
 
-final case class GameMap(size: Size, tileMap: QuadTree[GameTile], visible: List[Point], explored: Set[Point]):
+final case class GameMap(size: Size, tileMap: QuadTree[GameTile], visible: List[Point], explored: Set[Point], entities: List[Entity]):
+  def entitiesList: List[Entity] =
+    entities.filter(e => visible.contains(e.position))
+  
   private def updateMap(tm: QuadTree[GameTile], coords: Point, f: GameTile => GameTile): QuadTree[GameTile] =
     val vtx = Vertex.fromPoint(coords)
     tm.fetchElementAt(vtx).map(f) match
@@ -43,9 +46,6 @@ final case class GameMap(size: Size, tileMap: QuadTree[GameTile], visible: List[
   
   def insert(tiles: (Point, GameTile)*): GameMap =
     insert(tiles.toList)
-
-  def inBounds(point: Point): Boolean =
-    return (0 <= point.x && point.x < size.width) && (0 <= point.y && point.y < size.height)
 
   def lookUp(at: Point): Option[GameTile] =
     tileMap.fetchElementAt(Vertex.fromPoint(at))
@@ -79,16 +79,17 @@ final case class GameMap(size: Size, tileMap: QuadTree[GameTile], visible: List[
   end toExploredTiles
 
 object GameMap:
-  def initial(size: Size): GameMap =
+  def initial(size: Size, entities: List[Entity]): GameMap =
     GameMap(
       size,
       QuadTree.empty(size.width, size.height),
       Nil,
-      Set()
+      Set(),
+      entities
     )
 
   def generateMap(size: Size, dungeon: Dungeon): GameMap =
-    initial(size).insert(dungeon.positionedTiles)
+    initial(size, dungeon.entities).insert(dungeon.positionedTiles)
 
   def calculateFOV(radius: Int, center: Point, tileMap: QuadTree[GameTile]): List[Point] =
     val bounds: Rectangle =

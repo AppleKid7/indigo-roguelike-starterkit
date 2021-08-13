@@ -12,8 +12,9 @@ import roguelike.model.ViewModel
 @JSExportTopLevel("IndigoGame")
 object RogueLikeGame extends IndigoGame[Unit, Unit, Model, ViewModel]:
 
-  val screenSize: Size = Size(80, 50)
+  val screenSize: Size = Size(32, 32)
   val charSize: Size = Size(10, 10)
+  val maxNumberOfTiles: Int = 4096
 
   def initialScene(bootData: Unit): Option[SceneName] =
     None
@@ -45,7 +46,7 @@ object RogueLikeGame extends IndigoGame[Unit, Unit, Model, ViewModel]:
     Outcome(Model.initial(screenSize))
 
   def initialViewModel(startupData: Unit, model: Model): Outcome[ViewModel] =
-    Outcome(ViewModel.initial(model.screenSize))
+    Outcome(ViewModel.initial)
 
   def setup(bootData: Unit, assetCollection: AssetCollection, dice: Dice): Outcome[Startup[Unit]] =
     Outcome(Startup.Success(()))
@@ -59,6 +60,7 @@ object RogueLikeGame extends IndigoGame[Unit, Unit, Model, ViewModel]:
   def present(context: FrameContext[Unit], model: Model, viewModel: ViewModel): Outcome[SceneUpdateFragment] =
     Outcome(SceneUpdateFragment(
       Layer(BindingKey("game")),
+      Layer(BindingKey("log")),
       Layer(BindingKey("fps"))
     ))
 

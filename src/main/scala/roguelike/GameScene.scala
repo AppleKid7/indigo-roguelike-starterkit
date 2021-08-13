@@ -6,7 +6,7 @@ import indigo.scenes._
 import indigo.lib.roguelike.DfTiles
 import indigo.lib.roguelike.terminal.{TerminalEmulator, MapTile, TerminalEntity, TerminalText}
 
-import roguelike.model.{Action, Model, ViewModel}
+import roguelike.model.{Model, ViewModel}
 import _root_.io.circe.CursorOp.MoveUp
 import roguelike.RogueLikeGame.RegenerateLevel
 import roguelike.model.GameTile
@@ -32,8 +32,6 @@ object GameScene extends Scene[Unit, Model, ViewModel]:
     Set()
 
   def updateModel(context: FrameContext[Unit], model: Model): GlobalEvent => Outcome[Model] =
-    case KeyboardEvent.KeyUp(Key.SPACE) =>
-      Outcome(model).addGlobalEvents(SceneEvent.JumpTo(StartScene.name))
     case KeyboardEvent.KeyUp(Key.UP_ARROW) =>
       Outcome(model.moveUp)
     case KeyboardEvent.KeyUp(Key.DOWN_ARROW) =>
@@ -54,7 +52,7 @@ object GameScene extends Scene[Unit, Model, ViewModel]:
   ): GlobalEvent => Outcome[ViewModel] =
     case KeyboardEvent.KeyUp(_) | RegenerateLevel =>
       val term =
-        TerminalEmulator(RogueLikeGame.screenSize, 4096)
+        TerminalEmulator(RogueLikeGame.screenSize, RogueLikeGame.maxNumberOfTiles)
           .put(model.gameMap.toExploredTiles)
           .put(model.gameMap.visibleTiles)
           .put(model.entitiesList.map(e => (e.position, e.tile)))
@@ -65,6 +63,13 @@ object GameScene extends Scene[Unit, Model, ViewModel]:
         )
       )
     case _ => Outcome(viewModel)
+
+  val consoleLine: TextBox =
+    TextBox("> ")
+      .withColor(RGBA.Green)
+      .withFontFamily(FontFamily.monospace)
+      .withFontSize(Pixels((RogueLikeGame.charSize.height * 2) - 4))
+      .moveTo(2, ((RogueLikeGame.screenSize.height - 2) * RogueLikeGame.charSize.height) + 1)
 
   def present(context: FrameContext[Unit], model: Model, viewModel: ViewModel): Outcome[SceneUpdateFragment] =
     viewModel.terminalEntity match
@@ -85,6 +90,10 @@ object GameScene extends Scene[Unit, Model, ViewModel]:
             Layer(
               BindingKey("game"),
               entity
+            ),
+            Layer(
+              BindingKey("log"),
+              consoleLine.withText("> " + model.message)
             )
           )
         )

@@ -3,36 +3,40 @@ package roguelike.model
 import indigo._
 import indigoextras.trees.QuadTree
 
-final case class Model(screenSize: Size, player: Player, entities: List[Entity], gameMap: GameMap):
+final case class Model(screenSize: Size, player: Player, gameMap: GameMap, message: String):
   def entitiesList: List[Entity] =
-    player :: entities.filter(e => gameMap.visible.contains(e.position))
+    player :: gameMap.entitiesList
 
   def moveUp: Model =
-    val p = player.handleAction(Action.MoveUp, gameMap)
+    val p = player.bump(Point(0, -1), gameMap)
     this.copy(
-      player = p,
-      gameMap = gameMap.update(p.position)
+      player = p.player,
+      gameMap = gameMap.update(p.player.position),
+      message = p.message
     )
 
   def moveDown: Model =
-    val p = player.handleAction(Action.MoveDown, gameMap)
+    val p = player.bump(Point(0, 1), gameMap)
     this.copy(
-      player = p,
-      gameMap = gameMap.update(p.position)
+      player = p.player,
+      gameMap = gameMap.update(p.player.position),
+      message = p.message
     )
 
   def moveLeft: Model =
-    val p = player.handleAction(Action.MoveLeft, gameMap)
+    val p = player.bump(Point(-1, 0), gameMap)
     this.copy(
-      player = p,
-      gameMap = gameMap.update(p.position)
+      player = p.player,
+      gameMap = gameMap.update(p.player.position),
+      message = p.message
     )
 
   def moveRight: Model =
-    val p = player.handleAction(Action.MoveRight, gameMap)
+    val p = player.bump(Point(1, 0), gameMap)
     this.copy(
-      player = p,
-      gameMap = gameMap.update(p.position)
+      player = p.player,
+      gameMap = gameMap.update(p.player.position),
+      message = p.message
     )
   
 object Model:
@@ -40,17 +44,22 @@ object Model:
     Model(
       screenSize, 
       Player(Point.zero),
-      Nil,
-      GameMap.initial(screenSize)
+      GameMap.initial(screenSize, Nil),
+      ""
     )
 
   def generateModel(dice: Dice, screenSize: Size): Model =
-    val dungeon = DungeonGenerator.makeMap(dice, 30, 6, 10, screenSize)
+    val dungeon = DungeonGenerator.makeMap(
+      dice,
+      DungeonGenerator.maxRooms,
+      DungeonGenerator.roomMinSize,
+      DungeonGenerator.roomMaxSize,
+      screenSize,
+      DungeonGenerator.maxMonstersPerRoom
+    )
     Model(
       screenSize,
       Player(dungeon.playerStart),
-      List(
-        NPC((screenSize.toPoint / 2) + Point(-5))
-      ),
-      GameMap.generateMap(screenSize, dungeon).update(dungeon.playerStart)
+      GameMap.generateMap(screenSize, dungeon).update(dungeon.playerStart),
+      ""
     )

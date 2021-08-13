@@ -9,6 +9,6 @@ import indigo.lib.roguelike.terminal.MapTile
 final case class ViewModel(terminalEntity: Option[TerminalEntity], shroud: MapTile)
 
 object ViewModel {
-  def initial(screenSize: Size): ViewModel =
+  def initial: ViewModel =
     ViewModel(None, MapTile(DfTiles.Tile.SPACE))
 }
