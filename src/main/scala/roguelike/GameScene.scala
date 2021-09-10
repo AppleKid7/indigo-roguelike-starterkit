@@ -6,8 +6,8 @@ import indigo.scenes._
 import indigo.lib.roguelike.DfTiles
 import indigo.lib.roguelike.terminal.{TerminalEmulator, MapTile, TerminalEntity, TerminalText}
 
+import roguelike.GameEvent
 import roguelike.model.{Model, ViewModel}
-import _root_.io.circe.CursorOp.MoveUp
 import roguelike.RogueLikeGame.RegenerateLevel
 import roguelike.model.GameTile
 
@@ -32,16 +32,18 @@ object GameScene extends Scene[Unit, Model, ViewModel]:
     Set()
 
   def updateModel(context: FrameContext[Unit], model: Model): GlobalEvent => Outcome[Model] =
-    case KeyboardEvent.KeyUp(Key.UP_ARROW) =>
-      Outcome(model.moveUp)
-    case KeyboardEvent.KeyUp(Key.DOWN_ARROW) =>
-      Outcome(model.moveDown)
-    case KeyboardEvent.KeyUp(Key.LEFT_ARROW) =>
-      Outcome(model.moveLeft)
-    case KeyboardEvent.KeyUp(Key.RIGHT_ARROW) =>
-      Outcome(model.moveRight)
+    case KeyboardEvent.KeyUp(Key.UP_ARROW) if model.player.isAlive =>
+      model.moveUp(context.dice)
+    case KeyboardEvent.KeyUp(Key.DOWN_ARROW) if model.player.isAlive =>
+      model.moveDown(context.dice)
+    case KeyboardEvent.KeyUp(Key.LEFT_ARROW) if model.player.isAlive =>
+      model.moveLeft(context.dice)
+    case KeyboardEvent.KeyUp(Key.RIGHT_ARROW) if model.player.isAlive =>
+      model.moveRight(context.dice)
     case RegenerateLevel =>
       Outcome(Model.generateModel(context.dice, model.screenSize))
+    case e: GameEvent =>
+      model.update(context.dice)(e)
     case _ =>
       Outcome(model)
 
@@ -63,12 +65,21 @@ object GameScene extends Scene[Unit, Model, ViewModel]:
         )
       )
     case _ => Outcome(viewModel)
-
+  
+  val statusLine: TextBox =
+    TextBox("")
+      .withColor(RGBA.Green)
+      .withFontFamily(FontFamily.monospace)
+      .withFontSize(Pixels((RogueLikeGame.charSize.height * 2) - 4))
+      .withSize(RogueLikeGame.screenSize * RogueLikeGame.charSize)
+      .moveTo(2, 2)
+  
   val consoleLine: TextBox =
     TextBox("> ")
       .withColor(RGBA.Green)
       .withFontFamily(FontFamily.monospace)
       .withFontSize(Pixels((RogueLikeGame.charSize.height * 2) - 4))
+      .withSize(RogueLikeGame.screenSize * RogueLikeGame.charSize)
       .moveTo(2, ((RogueLikeGame.screenSize.height - 2) * RogueLikeGame.charSize.height) + 1)
 
   def present(context: FrameContext[Unit], model: Model, viewModel: ViewModel): Outcome[SceneUpdateFragment] =
@@ -93,6 +104,7 @@ object GameScene extends Scene[Unit, Model, ViewModel]:
             ),
             Layer(
               BindingKey("log"),
+              statusLine.withText(model.status),
               consoleLine.withText("> " + model.message)
             )
           )

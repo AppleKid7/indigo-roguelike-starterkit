@@ -9,13 +9,13 @@ object DungeonGenerator:
   val maxRooms = 30
   val maxMonstersPerRoom = 2
 
-  def placeEntitites(dice: Dice, room: Rectangle, maxMonstersPerRoom: Int): List[Entity] =
+  def placeEntitites(entityCount: Int, dice: Dice, room: Rectangle, maxMonstersPerRoom: Int): List[Entity] =
     (0 until dice.roll(maxMonstersPerRoom)).toList.map { i =>
       val x = dice.roll(room.width - 2) + room.left + 1
       val y = dice.roll(room.height - 2) + room.top + 1
 
-      if dice.rollDouble < 0.8 then Orc(Point(x, y))
-      else Troll(Point(x, y))
+      if dice.rollDouble < 0.8 then Orc.spawn(entityCount + i, Point(x, y))
+      else Troll.spawn(entityCount + i, Point(x, y))
     }.distinct
 
   def createRoom(rect: Rectangle): List[(Point, GameTile)] =
@@ -64,11 +64,12 @@ object DungeonGenerator:
 
         val newRoom = Rectangle(x, y, w, h)
 
-        if rooms.exists(_.overlaps(newRoom)) then rec(numOfRooms + 1, lastRoomCenter, rooms, tiles, entities, playerStart)
+        if rooms.exists(_.overlaps(newRoom)) then
+          rec(numOfRooms + 1, lastRoomCenter, rooms, tiles, entities, playerStart)
         else
           val roomTiles = createRoom(newRoom)
           val roomCenter = newRoom.center
-          val roomEntities = placeEntitites(dice, newRoom, maxMonstersPerRoom)
+          val roomEntities = if numOfRooms == 0 then Nil else placeEntitites(entities.length, dice, newRoom, maxMonstersPerRoom)
 
           val tunnel =
             lastRoomCenter match

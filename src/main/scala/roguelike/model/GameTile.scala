@@ -6,7 +6,7 @@ import indigo.lib.roguelike.utils.GameTileInterface
 import indigo.lib.roguelike.DfTiles
 
 enum GameTile(val lightMapTile: MapTile, val darkMapTile: MapTile, val blocked: Boolean, val blockSight: Boolean) extends GameTileInterface:
-  case DarkWall extends GameTile(
+  case Wall extends GameTile(
     lightMapTile = MapTile(DfTiles.Tile.DARK_SHADE, RGB(0.9, 0.1, 0.1)),
     darkMapTile = MapTile(DfTiles.Tile.DARK_SHADE, RGB(0.4, 0.1, 0.1)),
     blocked = true,
@@ -18,3 +18,8 @@ enum GameTile(val lightMapTile: MapTile, val darkMapTile: MapTile, val blocked: 
     blocked = false,
     blockSight = false
   )
+
+  val scoreAs: GameTile => Int = {
+    case Ground => 1
+    case Wall => Int.MaxValue
+  }

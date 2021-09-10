@@ -2,19 +2,38 @@ package roguelike.model
 
 import indigo._
 import indigo.lib.roguelike.terminal.MapTile
-import indigo.lib.roguelike.utils.MapUtils.bresenhamLine
 import indigo.lib.roguelike.DfTiles
 
 import indigoextras.trees.QuadTree
 import indigoextras.trees.QuadTree.{QuadBranch, QuadEmpty, QuadLeaf}
 import indigoextras.geometry.Vertex
 
+import roguelike.GameEvent
+
 import scala.annotation.tailrec
 import indigoextras.geometry.BoundingBox
+import roguelike.utils.PathFinder
+import roguelike.utils.FOV
 
-final case class GameMap(size: Size, tileMap: QuadTree[GameTile], visible: List[Point], explored: Set[Point], entities: List[Entity]):
+final case class GameMap(
+  size: Size, 
+  tileMap: QuadTree[GameTile], 
+  visible: List[Point], 
+  explored: Set[Point], 
+  entities: List[Entity]
+):
   def entitiesList: List[Entity] =
     entities.filter(e => visible.contains(e.position))
+  
+  def damageEntity(id: Int, damage: Int): GameMap =
+    this.copy(
+      entities = entities.map {
+        case e: Hostile if e.id == id =>
+          e.takeDamage(damage)
+
+        case e => e
+      }
+    )
   
   private def updateMap(tm: QuadTree[GameTile], coords: Point, f: GameTile => GameTile): QuadTree[GameTile] =
     val vtx = Vertex.fromPoint(coords)
@@ -22,12 +41,41 @@ final case class GameMap(size: Size, tileMap: QuadTree[GameTile], visible: List[
       case None => tm
       case Some(tile) => tm.insertElement(tile, vtx)
 
-  def update(playerPosition: Point): GameMap =
-    val newVisible = GameMap.calculateFOV(15, playerPosition, tileMap)
-    this.copy(
-      visible = newVisible,
-      explored = explored ++ newVisible
-    )
+  def updateEntities(dice: Dice, playerPosition: Point, pause: Boolean): Outcome[GameMap] =
+    val newVisible = FOV.calculateFOV(15, playerPosition, tileMap)
+    val updatedEntities =
+      if !pause then
+        Outcome.sequence(
+          entities.map {
+            case entity: Hostile =>
+              entity.nextMove(dice, playerPosition, this)
+
+            case entity => Outcome(entity)
+          }
+        )
+      else Outcome(entities)
+
+    updatedEntities.map { es => 
+      this.copy(
+        visible = newVisible,
+        explored = explored ++ newVisible,
+        entities = es
+      )
+    }
+  
+  def update(dice: Dice, playerPosition: Point, pause: Boolean): GlobalEvent => Outcome[GameMap] =
+    case e: GameEvent.MoveEntity =>
+      val updatedEntities =
+        Outcome.sequence(entities.map(_.update(dice, playerPosition, this)(e)))
+      
+      updatedEntities.map { es =>
+        this.copy(
+          entities = es
+        )
+      }
+
+    case _ =>
+      Outcome(this)
 
   def visibleTiles: List[(Point, MapTile)] =
     visible
@@ -78,6 +126,16 @@ final case class GameMap(size: Size, tileMap: QuadTree[GameTile], visible: List[
     rec(List(tileMap), Nil)
   end toExploredTiles
 
+  def getPathTo(dice: Dice, from: Point, to: Point, additionalBlocked: List[Point]) =
+    val area = Rectangle.fromTwoPoints(from, to).expand(2)
+    val filter: GameTile => Boolean = {
+      case GameTile.Ground => true
+      case _ => false
+    }
+    val walkable = FOV.searchByBounds(tileMap, area, filter).filterNot(additionalBlocked.contains)
+
+    FOV.getPathTo(dice, from, to, walkable, area)
+
 object GameMap:
   def initial(size: Size, entities: List[Entity]): GameMap =
     GameMap(
@@ -90,42 +148,3 @@ object GameMap:
 
   def generateMap(size: Size, dungeon: Dungeon): GameMap =
     initial(size, dungeon.entities).insert(dungeon.positionedTiles)
-
-  def calculateFOV(radius: Int, center: Point, tileMap: QuadTree[GameTile]): List[Point] =
-    val bounds: Rectangle =
-      Rectangle(
-        (center - radius).max(0),
-        (Size(center.x, center.y) + radius).max(1)
-      )
-    val tiles =
-      searchByBounds(tileMap, bounds).filter(pt => center.distanceTo(pt) <= radius)
-
-    @tailrec
-    def visibleTiles(remaining: List[Point], acc: List[Point]): List[Point] =
-      remaining match
-        case Nil => acc
-        case pt :: pts =>
-          val lineOfSight = bresenhamLine(pt, center)
-          if lineOfSight.forall(tiles.contains) then
-            visibleTiles(
-              pts,
-              pt :: acc
-            )
-          else visibleTiles(pts, acc)
-    visibleTiles(tiles, Nil)
-
-  def searchByBounds(quadTree: QuadTree[GameTile], bounds: Rectangle): List[Point] =
-    val boundingBox: BoundingBox = BoundingBox.fromRectangle(bounds)
-
-    @tailrec
-    def rec(remaining: List[QuadTree[GameTile]], acc: List[Point]): List[Point] =
-      remaining match
-        case Nil => acc
-        case x :: xs =>
-          x match
-            case QuadBranch(bounds, a, b, c, d) if boundingBox.overlaps(bounds) =>
-              rec(a :: b :: c :: d :: xs, acc)
-            case QuadLeaf(_, exactPosition, value) if boundingBox.contains(exactPosition) =>
-              rec(xs, exactPosition.toPoint :: acc)
-            case _ => rec(xs, acc)
-    rec(List(quadTree), Nil)
