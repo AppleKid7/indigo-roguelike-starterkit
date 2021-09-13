@@ -2,6 +2,7 @@ package roguelike.model
 
 import indigo._
 import indigo.lib.roguelike.terminal.MapTile
+import indigo.lib.roguelike.utils.PathFinder
 import indigo.lib.roguelike.DfTiles
 
 import indigoextras.trees.QuadTree
@@ -12,7 +13,6 @@ import roguelike.GameEvent
 
 import scala.annotation.tailrec
 import indigoextras.geometry.BoundingBox
-import roguelike.utils.PathFinder
 import roguelike.utils.FOV
 
 final case class GameMap(

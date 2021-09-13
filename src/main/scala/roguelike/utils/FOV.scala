@@ -2,6 +2,7 @@ package roguelike.utils
 
 import indigo._
 import indigo.lib.roguelike.utils.MapUtils.bresenhamLine
+import indigo.lib.roguelike.utils.PathFinder
 import indigo.shared.datatypes.Point
 import indigoextras.geometry.BoundingBox
 import indigoextras.trees.QuadTree
