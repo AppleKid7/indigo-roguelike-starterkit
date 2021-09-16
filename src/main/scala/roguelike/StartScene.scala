@@ -6,7 +6,6 @@ import indigo.scenes._
 import indigo.lib.roguelike.DfTiles
 import indigo.lib.roguelike.terminal.{TerminalEmulator, TerminalEntity, TerminalText}
 import roguelike.model.{Model, ViewModel}
-import roguelike.RogueLikeGame.RegenerateLevel
 
 object StartScene extends Scene[Unit, Model, ViewModel]:
 
@@ -31,8 +30,8 @@ object StartScene extends Scene[Unit, Model, ViewModel]:
   def updateModel(context: FrameContext[Unit], model: Model): GlobalEvent => Outcome[Model] =
     case KeyboardEvent.KeyUp(Key.SPACE) =>
       Outcome(model).addGlobalEvents(SceneEvent.JumpTo(GameScene.name))
-    case RegenerateLevel =>
-      Outcome(Model.generateModel(context.dice, model.screenSize))
+    case GameEvent.RegenerateLevel =>
+      Model.generateModel(context.dice, model.screenSize)
     case _ =>
       Outcome(model)
 
@@ -41,7 +40,7 @@ object StartScene extends Scene[Unit, Model, ViewModel]:
       model: Model,
       viewModel: ViewModel
   ): GlobalEvent => Outcome[ViewModel] =
-    case RegenerateLevel =>
+    case GameEvent.RegenerateLevel =>
       val term =
         TerminalEmulator(RogueLikeGame.screenSize, RogueLikeGame.maxNumberOfTiles)
           .put(model.gameMap.toExploredTiles)

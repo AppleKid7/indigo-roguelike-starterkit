@@ -8,8 +8,8 @@ import indigo.lib.roguelike.terminal.{TerminalEmulator, MapTile, TerminalEntity,
 
 import roguelike.GameEvent
 import roguelike.model.{Model, ViewModel}
-import roguelike.RogueLikeGame.RegenerateLevel
 import roguelike.model.GameTile
+import roguelike.model.Message
 
 object GameScene extends Scene[Unit, Model, ViewModel]:
 
@@ -32,16 +32,35 @@ object GameScene extends Scene[Unit, Model, ViewModel]:
     Set()
 
   def updateModel(context: FrameContext[Unit], model: Model): GlobalEvent => Outcome[Model] =
+    case KeyboardEvent.KeyUp(Key.UP_ARROW) if model.showMessageHistory  =>
+      Outcome(
+        model.copy(
+          historyViewer = model.historyViewer.scrollUp
+        )
+      ).addGlobalEvents(GameEvent.Redraw)
     case KeyboardEvent.KeyUp(Key.UP_ARROW) if model.player.isAlive =>
       model.moveUp(context.dice)
+    case KeyboardEvent.KeyUp(Key.DOWN_ARROW) if model.showMessageHistory  =>
+      Outcome(
+        model.copy(
+          historyViewer = model.historyViewer.scrollDown(model.messageLog.logLength)
+        )
+      ).addGlobalEvents(GameEvent.Redraw)
     case KeyboardEvent.KeyUp(Key.DOWN_ARROW) if model.player.isAlive =>
       model.moveDown(context.dice)
     case KeyboardEvent.KeyUp(Key.LEFT_ARROW) if model.player.isAlive =>
       model.moveLeft(context.dice)
+    case KeyboardEvent.KeyUp(Key.RIGHT_ARROW) if model.showMessageHistory =>
+      Outcome(model)
     case KeyboardEvent.KeyUp(Key.RIGHT_ARROW) if model.player.isAlive =>
       model.moveRight(context.dice)
-    case RegenerateLevel =>
-      Outcome(Model.generateModel(context.dice, model.screenSize))
+    case KeyboardEvent.KeyUp(Key.KEY_V) =>
+      Outcome(model.toggleMessageHistory)
+        .addGlobalEvents(GameEvent.Redraw)
+    case GameEvent.RegenerateLevel =>
+      Model
+        .generateModel(context.dice, model.screenSize)
+        .addGlobalEvents(GameEvent.Log(Message("Welcome!", RGB.Cyan)))
     case e: GameEvent =>
       model.update(context.dice)(e)
     case _ =>
@@ -52,35 +71,48 @@ object GameScene extends Scene[Unit, Model, ViewModel]:
       model: Model,
       viewModel: ViewModel
   ): GlobalEvent => Outcome[ViewModel] =
-    case KeyboardEvent.KeyUp(_) | RegenerateLevel =>
-      val term =
-        TerminalEmulator(RogueLikeGame.screenSize, RogueLikeGame.maxNumberOfTiles)
-          .put(model.gameMap.toExploredTiles)
-          .put(model.gameMap.visibleTiles)
-          .put(model.entitiesList.map(e => (e.position, e.tile)))
-          .draw(Assets.tileMap, RogueLikeGame.charSize, viewModel.shroud)
-      Outcome(
-        viewModel.copy(
-          terminalEntity = Option(term)
+    case _: KeyboardEvent =>
+      redrawTerminal(model, viewModel)
+
+    case GameEvent.Redraw | GameEvent.RegenerateLevel =>
+      redrawTerminal(model, viewModel)
+    
+    case _: GameEvent.Log =>
+      redrawTerminal(model, viewModel)
+
+    case _ =>
+      Outcome(viewModel)
+  
+  private def redrawTerminal(model: Model, viewModel: ViewModel): Outcome[ViewModel] =
+    val term =
+      TerminalEmulator(RogueLikeGame.screenSize, RogueLikeGame.maxNumberOfTiles)
+        .put(model.gameMap.toExploredTiles)
+        .put(model.gameMap.visibleTiles)
+        .put(model.entitiesList.map(e => (e.position, e.tile)))
+
+    val log =
+      model.messageLog.toTerminal(Size(RogueLikeGame.screenSize.width - 21, 5), false, 0, true)
+
+    val withHistory =
+      if model.showMessageHistory then
+        term
+          .inset(log, Point(21, 45))
+          .inset(
+            model.historyViewer.toTerminal(model.messageLog),
+            ((RogueLikeGame.screenSize - model.historyViewer.size) / 2).toPoint
+          )
+      else
+        term
+          .inset(log, Point(21, 45))
+
+    Outcome(
+      viewModel.copy(
+        terminalEntity = Option(
+          withHistory
+            .draw(Assets.tileMap, RogueLikeGame.charSize, viewModel.shroud)
         )
       )
-    case _ => Outcome(viewModel)
-  
-  val statusLine: TextBox =
-    TextBox("")
-      .withColor(RGBA.Green)
-      .withFontFamily(FontFamily.monospace)
-      .withFontSize(Pixels((RogueLikeGame.charSize.height * 2) - 4))
-      .withSize(RogueLikeGame.screenSize * RogueLikeGame.charSize)
-      .moveTo(2, 2)
-  
-  val consoleLine: TextBox =
-    TextBox("> ")
-      .withColor(RGBA.Green)
-      .withFontFamily(FontFamily.monospace)
-      .withFontSize(Pixels((RogueLikeGame.charSize.height * 2) - 4))
-      .withSize(RogueLikeGame.screenSize * RogueLikeGame.charSize)
-      .moveTo(2, ((RogueLikeGame.screenSize.height - 2) * RogueLikeGame.charSize.height) + 1)
+    )
 
   def present(context: FrameContext[Unit], model: Model, viewModel: ViewModel): Outcome[SceneUpdateFragment] =
     viewModel.terminalEntity match
@@ -104,8 +136,8 @@ object GameScene extends Scene[Unit, Model, ViewModel]:
             ),
             Layer(
               BindingKey("log"),
-              statusLine.withText(model.status),
-              consoleLine.withText("> " + model.message)
+              View.renderBar(model.player, 20, Point(0, 45)),
+              View.renderNameHints(RogueLikeGame.charSize, context.mouse.position, model.gameMap.entitiesList)
             )
           )
         )

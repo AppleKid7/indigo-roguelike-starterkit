@@ -4,6 +4,7 @@ import indigo._
 import indigo.lib.roguelike.DfTiles
 import indigo.lib.roguelike.terminal.MapTile
 
+import roguelike.ColorScheme
 import roguelike.GameEvent
 
 sealed trait Entity:
@@ -27,20 +28,20 @@ sealed trait Hostile extends Actor:
   def markAsDead(isDead: Boolean): Hostile
 
   def update(dice: Dice, playerPosition: Point, gameMap: GameMap): GameEvent => Outcome[Hostile] =
-    case GameEvent.MoveEntity(entityId, to)
-        if entityId == id && !gameMap.entities.exists(e => e.blocksMovement && e.position == to) =>
+    case GameEvent.MoveEntity(entityId, to) if entityId == id =>
       Outcome(moveTo(to))
     case _ =>
       Outcome(this)
 
-  def nextMove(dice: Dice, playerPosition: Point, gameMap: GameMap): Outcome[Hostile] =
+  def nextMove(dice: Dice, playerPosition: Point, gameMap: GameMap, nextVisible: List[Point]): Outcome[Hostile] =
     val events =
-      if isAlive && gameMap.visible.contains(position) then
+      if isAlive && nextVisible.contains(position) then
         if playerPosition.distanceTo(position) <= 1 then List(GameEvent.MeleeAttack(name, fighter.power, None))
         else
           val entityPositions = gameMap.entities.flatMap(e => if e.blocksMovement then List(e.position) else Nil)
-          gameMap.getPathTo(dice, position, playerPosition, entityPositions) match
-            case _ :: nextPosition :: _ =>
+          val path            = gameMap.getPathTo(dice, position, playerPosition, entityPositions)
+          path.drop(1).headOption match
+            case Some(nextPosition) =>
               List(GameEvent.MoveEntity(id, nextPosition))
 
             case _ =>
@@ -49,15 +50,36 @@ sealed trait Hostile extends Actor:
 
     Outcome(this).addGlobalEvents(events)
 
-  def takeDamage(amount: Int): Actor =
+  def takeDamage(amount: Int): Outcome[Actor] =
     val f = fighter.takeDamage(amount)
-    this
-      .withFighter(f)
-      .markAsDead(if f.hp > 0 then false else true)
+    Outcome(
+      this
+        .withFighter(f)
+        .markAsDead(if f.hp > 0 then false else true)
+    ).addGlobalEvents(if f.hp <= 0 then List(GameEvent.Log(Message(s"You killed a $name", RGB(0.75, 0, 0)))) else Nil)
 
 final case class Fighter(hp: Int, maxHp: Int, defense: Int, power: Int):
   def withHp(value: Int): Fighter =
     this.copy(hp = Math.max(0, Math.min(value, maxHp)))
+
+  def heal(amount: Int): Outcome[Fighter] =
+    if hp == maxHp then Outcome(this)
+    else
+      val newHpValue = hp + amount
+      if hp + amount > maxHp then maxHp else hp + amount
+
+      val amountRecovered = newHpValue - hp
+
+      val events =
+        if amountRecovered <= 0 then Nil
+        else
+          List(
+            GameEvent.Log(Message(s"Player healed by ${amountRecovered.toString}!", ColorScheme.healthRecovered))
+          )
+
+      Outcome(
+        this.copy(hp = newHpValue)
+      ).addGlobalEvents(events)
   
   def takeDamage(amount: Int): Fighter =
     this.copy(hp = hp - amount)
@@ -105,7 +127,7 @@ object Player:
 
 final case class Orc(id: Int, position: Point, isAlive: Boolean, fighter: Fighter, movePath: List[Point]) extends Hostile:
   val tile: MapTile =
-    if isAlive then MapTile(DfTiles.Tile.`o`, RGB.fromColorInts(63, 127, 63)) else MapTile(DfTiles.Tile.`o`, RGB.Red)
+    if isAlive then MapTile(DfTiles.Tile.`o`, RGB.fromColorInts(63, 127, 63)) else MapTile(DfTiles.Tile.`%`, RGB(1.0, 0.6, 1.0))
   val blocksMovement: Boolean = isAlive
   val name: String = "Orc"
 
@@ -127,7 +149,7 @@ object Orc:
 
 final case class Troll(id: Int, position: Point, isAlive: Boolean, fighter: Fighter, movePath: List[Point]) extends Hostile:
   val tile: MapTile =
-    if isAlive then MapTile(DfTiles.Tile.`T`, RGB.fromColorInts(0, 127, 0)) else MapTile(DfTiles.Tile.`T`, RGB.Red)
+    if isAlive then MapTile(DfTiles.Tile.`T`, RGB.fromColorInts(0, 127, 0)) else MapTile(DfTiles.Tile.`%`, RGB.Magenta)
   val blocksMovement: Boolean = isAlive
   val name: String = "Troll"
 
